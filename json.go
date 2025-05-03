@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -31,4 +32,17 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	}
 	w.WriteHeader(code)
 	w.Write(dat)
+}
+
+func getMimeExtension(mediaType string) (string, error) {
+	mimeExtensions := map[string]string{
+		"image/png":        ".png",
+		"image/jpeg":       ".jpg",
+		"video/mp4":       ".mp4",
+	}
+
+	if ext, ok := mimeExtensions[mediaType]; ok {
+		return ext, nil
+	}
+	return "", fmt.Errorf("unsupported media type: %s", mediaType)
 }

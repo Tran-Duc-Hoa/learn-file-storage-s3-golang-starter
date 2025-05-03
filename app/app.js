@@ -30,9 +30,9 @@ async function createVideoDraft() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ title, description }),
+      body: JSON.stringify({ title, description })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -57,9 +57,9 @@ async function login() {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -87,9 +87,9 @@ async function signup() {
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password })
     });
     if (!res.ok) {
       const data = await res.json();
@@ -133,9 +133,9 @@ async function uploadThumbnail(videoID) {
     const res = await fetch(`/api/thumbnail_upload/${videoID}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${localStorage.getItem('token')}`
       },
-      body: formData,
+      body: formData
     });
     if (!res.ok) {
       const data = await res.json();
@@ -166,9 +166,9 @@ async function uploadVideoFile(videoID) {
     const res = await fetch(`/api/video_upload/${videoID}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        Authorization: `Bearer ${localStorage.getItem('token')}`
       },
-      body: formData,
+      body: formData
     });
     if (!res.ok) {
       const data = await res.json();
@@ -191,8 +191,8 @@ async function getVideos() {
     const res = await fetch('/api/videos', {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
     });
     if (!res.ok) {
       const data = await res.json();
@@ -234,8 +234,8 @@ async function getVideo(videoID) {
     const res = await fetch(`/api/videos/${videoID}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
     });
     if (!res.ok) {
       throw new Error('Failed to get video.');
@@ -286,8 +286,8 @@ async function deleteVideo() {
     const res = await fetch(`/api/videos/${currentVideo.id}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
     });
     if (!res.ok) {
       throw new Error('Failed to delete video.');
