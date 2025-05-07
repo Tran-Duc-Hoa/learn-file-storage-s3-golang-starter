@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -9,9 +10,11 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
+	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -124,7 +127,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		ContentType: &mediaType,
 	})
 
-	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, fullname)
+	url := fmt.Sprintf("%s,%s", cfg.s3Bucket, fullname)
 	video.VideoURL = &url
 
 	err = cfg.db.UpdateVideo(video)
@@ -134,5 +137,31 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, video)
+	videoWithPresignedUrl, err := cfg.dbVideoToSignedVideo(video)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error(), err)
+	}
+	respondWithJSON(w, http.StatusOK, videoWithPresignedUrl)
+}
+
+func (cfg *apiConfig) dbVideoToSignedVideo(video database.Video) (database.Video, error) {
+	if video.VideoURL == nil {
+		return video, fmt.Errorf("VideoURL is nil")
+	}
+
+	parts := bytes.Split([]byte(*video.VideoURL), []byte(","))
+	if len(parts) != 2 {
+		return video, fmt.Errorf("invalid VideoURL format, expected 'bucket,key'")
+	}
+
+	bucket := string(parts[0])
+	key := string(parts[1])
+
+	presignedURL, err := generatePresignedURL(cfg.s3Client, bucket, key, 15*time.Minute)
+	if err != nil {
+		return video, fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	video.VideoURL = &presignedURL
+	return video, nil
 }

@@ -2,11 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
@@ -103,3 +108,21 @@ func processVideoForFastStart(filePath string) (string, error) {
 
 	return outputFilePath, nil
 }
+
+func generatePresignedURL(s3Client *s3.Client, bucket, key string, expireTime time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(s3Client)
+	
+	presignedRequest, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expireTime))
+
+	if err != nil {
+		return "", err
+	}
+	return presignedRequest.URL, nil
+}
+
+
+
+
