@@ -68,7 +68,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	filename := "tubely-upload.mp4"
+	filename := "upload-video.mp4"
 	tempFile, err := os.CreateTemp("", filename)
 	if err != nil {
 		log.Println("Error creating file:", err)
@@ -77,24 +77,52 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	defer os.Remove(filename)
 	defer tempFile.Close()
 
-	io.Copy(tempFile, file)
-	tempFile.Seek(0, io.SeekStart)
-
-	var name [32]byte
-	rand.Read(name[:])
-	encodedName := base64.RawURLEncoding.EncodeToString(name[:])
-	fullname := fmt.Sprintf("%s.%s", encodedName, ext)
-	cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
-		Bucket: &cfg.s3Bucket,
-		Key: &fullname,
-		Body:        tempFile,
-		ContentType: &mediaType,
-	})
-
 	if _, err = io.Copy(tempFile, file); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error saving file", err)
 		return
 	}
+	tempFile.Seek(0, io.SeekStart)
+
+	ratio, err := getVideoAspectRatio(tempFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error determining video aspect ratio", err)
+		return
+	}
+	var prefix string
+	switch ratio {
+	case "16:9", "4:3":
+		prefix = "landscape"
+	case "9:16", "3:4":
+		prefix = "portrait"
+	default:
+		prefix = "other"
+	}
+
+	processedPath, err := processVideoForFastStart(tempFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error processing video for fast start", err)
+		return
+	}
+	defer os.Remove(processedPath)
+
+	var name [32]byte
+	rand.Read(name[:])
+	encodedName := base64.RawURLEncoding.EncodeToString(name[:])
+	fullname := fmt.Sprintf("%s/%s.%s", prefix, encodedName, ext)
+
+	processedFile, err := os.Open(processedPath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error opening processed video file", err)
+		return
+	}
+	defer processedFile.Close()
+
+	cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
+		Bucket: &cfg.s3Bucket, 
+		Key: &fullname,
+		Body:        processedFile,
+		ContentType: &mediaType,
+	})
 
 	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, fullname)
 	video.VideoURL = &url

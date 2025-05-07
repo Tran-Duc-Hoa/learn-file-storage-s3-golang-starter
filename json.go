@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os/exec"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
@@ -45,4 +47,59 @@ func getMimeExtension(mediaType string) (string, error) {
 		return ext, nil
 	}
 	return "", fmt.Errorf("unsupported media type: %s", mediaType)
+}
+
+func getVideoAspectRatio(filePath string) (string, error) {
+	type Stream struct {
+		Width  int `json:"width"`
+		Height int `json:"height"`
+	}
+	type FFProbeOutput struct {
+		Streams []Stream `json:"streams"`
+	}
+
+	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to run ffprobe: %w", err)
+	}
+
+	var result FFProbeOutput
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		return "", fmt.Errorf("failed to parse ffprobe output: %w", err)
+	}
+
+	if len(result.Streams) == 0 {
+		return "", fmt.Errorf("no streams found in video file")
+	}
+
+	width := result.Streams[0].Width
+	height := result.Streams[0].Height
+
+	if width == 0 || height == 0 {
+		return "", fmt.Errorf("invalid width or height in video stream")
+	}
+
+	ratio := float64(width) / float64(height)
+	if ratio > 1.7 && ratio < 1.8 {
+		return "16:9", nil
+	} else if ratio > 0.55 && ratio < 0.57 {
+		return "9:16", nil
+	} else {
+		return "other", nil
+	}
+}
+
+func processVideoForFastStart(filePath string) (string, error) {
+	outputFilePath := filePath + ".processing"
+
+	cmd := exec.Command("ffmpeg", "-i", filePath, "-c", "copy", "-movflags", "faststart", "-f", "mp4", outputFilePath)
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to process video for fast start: %w", err)
+	}
+
+	return outputFilePath, nil
 }
